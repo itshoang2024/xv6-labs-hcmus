@@ -1,684 +1,1019 @@
 diff --git a/23127048_23127133_23127373.patch b/23127048_23127133_23127373.patch
-deleted file mode 100644
-index bac1b13..0000000
---- a/23127048_23127133_23127373.patch
-+++ /dev/null
-@@ -1,349 +0,0 @@
--diff --git a/.gitignore b/.gitignore
--index 11d0677..ff61dcf 100644
----- a/.gitignore
--+++ b/.gitignore
--@@ -25,3 +25,4 @@ barrier
-- .DS_Store
-- *.dSYM
-- *.pcap
--+.vscode/
--\ No newline at end of file
--diff --git a/Makefile b/Makefile
--index 74e454f..8f6f7dc 100644
----- a/Makefile
--+++ b/Makefile
--@@ -194,9 +194,11 @@ UPROGS=\
-- 	$U/_grind\
-- 	$U/_wc\
-- 	$U/_zombie\
---
---
---
--+	$U/_sleep\
--+	$U/_pingpong\
--+	$U/_primes\
--+	$U/_find\
--+	$U/_xargs\
-- 
-- ifeq ($(LAB),syscall)
-- UPROGS += \
--diff --git a/time.txt b/time.txt
--new file mode 100644
--index 0000000..9a03714
----- /dev/null
--+++ b/time.txt
--@@ -0,0 +1 @@
--+10
--\ No newline at end of file
--diff --git a/user/find.c b/user/find.c
--new file mode 100644
--index 0000000..2cbf72d
----- /dev/null
--+++ b/user/find.c
--@@ -0,0 +1,86 @@
--+#include "kernel/types.h"
--+#include "kernel/stat.h"
--+#include "user/user.h"
--+#include "kernel/fs.h"
--+#include "kernel/fcntl.h"
--+
--+char*
--+fmtname(char *path)
--+{
--+  static char buf[DIRSIZ+1];
--+  char *p;
--+
--+  // Find first character after last slash.
--+  for(p=path+strlen(path); p >= path && *p != '/'; p--)
--+    ;
--+  p++;
--+
--+  // Return blank-padded name.
--+  if(strlen(p) >= DIRSIZ)
--+    return p;
--+  memmove(buf, p, strlen(p));
--+  memset(buf+strlen(p), ' ', DIRSIZ-strlen(p));
--+  return buf;
--+}
--+
--+void
--+find(char *path, char *name)
--+{
--+  char buf[512], *p;
--+  int fd;
--+  struct dirent de;
--+  struct stat st;
--+
--+  if((fd = open(path, O_RDONLY)) < 0){
--+    fprintf(2, "find: cannot open %s\n", path);
--+    return;
--+  }
--+
--+  if(fstat(fd, &st) < 0){
--+    fprintf(2, "find: cannot stat %s\n", path);
--+    close(fd);
--+    return;
--+  }
--+
--+  if(st.type != T_DIR)
--+  {
--+    fprintf(2, "find: invalid directory\n");
--+    close(fd);
--+    return;
--+  }
--+
--+    strcpy(buf, path);
--+    p = buf+strlen(buf);
--+    *p++ = '/';
--+    while(read(fd, &de, sizeof(de)) == sizeof(de)){
--+      if(de.inum == 0)
--+        continue;
--+      memmove(p, de.name, DIRSIZ);
--+      p[DIRSIZ] = 0;
--+      if(stat(buf, &st) < 0){
--+        printf("find: cannot stat %s\n", buf);
--+        continue;
--+      }
--+
--+    if(st.type==T_DIR && strcmp(p, ".")!=0 && strcmp(p, "..")!=0)
--+    {
--+        find(buf, name);
--+    } else if(st.type==T_FILE && strcmp(p, name)==0)
--+    {
--+        printf("%s\n", buf);
--+    }
--+  }
--+  close(fd);
--+}
--+
--+int 
--+main(int argc, char *argv[])
--+{
--+  if(argc != 3)
--+  {
--+    fprintf(2, "Invalid usage!\n");
--+    exit(1);
--+  }
--+  find(argv[1], argv[2]);
--+  exit(0);
--+}
--diff --git a/user/pingpong.c b/user/pingpong.c
--new file mode 100644
--index 0000000..92f4c21
----- /dev/null
--+++ b/user/pingpong.c
--@@ -0,0 +1,57 @@
--+#include "kernel/types.h"
--+#include "user.h"
--+
--+int main(int argc, char* argv[]) {
--+    int pipePing[2], pipePong[2];
--+    if(pipe(pipePing) == -1 || pipe(pipePong) == -1) {
--+        fprintf(2, "Error: can't create pipe\n");
--+        exit(1);
--+    }
--+
--+
--+    char buffer = 'c';
--+    int pid = fork();
--+    if(pid < 0) {
--+        fprintf(2, "Error: can't fork\n");
--+        exit(1);
--+    }
--+
--+    if(pid == 0) { // child process
--+        close(pipePing[1]);
--+        close(pipePong[0]);
--+
--+        if(read(pipePing[0], &buffer, 1) == -1) {
--+            fprintf(2, "Error: child can't read\n");
--+            exit(1);
--+        }
--+        fprintf(1, "%d: received ping\n", getpid());
--+        close(pipePing[0]);
--+
--+        if(write(pipePong[1], &buffer, 1) == -1) {
--+            fprintf(2, "Error: child can't write\n");
--+            exit(1);
--+        }
--+        close(pipePong[1]);
--+        exit(0);
--+    }
--+
--+    else { // parent process
--+        close(pipePing[0]);
--+        close(pipePong[1]);
--+        
--+        if(write(pipePing[1], &buffer, 1) == -1) {
--+            fprintf(2, "Error: parent can't write\n");
--+            exit(1);
--+        }
--+        close(pipePing[1]);
--+
--+        if(read(pipePong[0], &buffer, 1) == -1) {
--+            fprintf(2, "Error: parent can't read\n");
--+            exit(1);
--+        }
--+        fprintf(1, "%d: received pong\n", getpid());
--+        close(pipePong[0]);
--+        wait(0);
--+        exit(0);
--+    }
--+}
--\ No newline at end of file
--diff --git a/user/primes.c b/user/primes.c
--new file mode 100644
--index 0000000..ba8332e
----- /dev/null
--+++ b/user/primes.c
--@@ -0,0 +1,54 @@
--+#include "kernel/types.h"
--+#include "user.h"
--+
--+void sieve(int pipeLeft[2]) __attribute__((noreturn));
--+
--+void sieve(int pipeLeft[2]) {
--+    close(pipeLeft[1]);
--+    int prime, n;
--+    
--+    if(read(pipeLeft[0], &prime, sizeof(int)) == 0) {
--+        exit(0);
--+    }
--+    fprintf(1, "prime %d\n", prime);
--+    
--+    int pipeRight[2];
--+    pipe(pipeRight);
--+    int pid = fork();
--+    if(pid) {
--+        close(pipeRight[0]);
--+        while(read(pipeLeft[0], &n, sizeof(int)) > 0) {
--+            if(n % prime != 0) {
--+                write(pipeRight[1], &n, sizeof(int));
--+            }
--+        }
--+        close(pipeRight[1]);
--+        close(pipeLeft[0]);
--+        wait(0);
--+        exit(0);
--+    } else {
--+        close(pipeLeft[0]);
--+        close(pipeRight[1]);
--+        sieve(pipeRight);
--+    }
--+}
--+
--+int main(int argc, char* argv[]) {
--+    int pipeMain[2];
--+    pipe(pipeMain);
--+
--+    int pid = fork();
--+    if(!pid) {
--+        close(pipeMain[1]);
--+        sieve(pipeMain);
--+    } else {
--+        close(pipeMain[0]);
--+        for(int i = 2; i <= 280; i++) {
--+            write(pipeMain[1], &i, sizeof(int));
--+        }
--+        close(pipeMain[1]);
--+        wait(0); 
--+    }
--+    
--+    exit(0);
--+}
--\ No newline at end of file
--diff --git a/user/sleep.c b/user/sleep.c
--new file mode 100644
--index 0000000..3fa4a64
----- /dev/null
--+++ b/user/sleep.c
--@@ -0,0 +1,13 @@
--+#include "kernel/types.h"
--+#include "user.h"
--+
--+int main(int argc, char* argv[]) {
--+    if(argc != 2) {
--+        fprintf(2, "Usage: sleep <ticks>\n");
--+        exit(1);
--+    }
--+
--+    int n = atoi(argv[1]);
--+    sleep(n);
--+    exit(0);
--+}
--\ No newline at end of file
--diff --git a/user/xargs.c b/user/xargs.c
--new file mode 100644
--index 0000000..624b854
----- /dev/null
--+++ b/user/xargs.c
--@@ -0,0 +1,69 @@
--+#include "kernel/types.h"
--+#include "kernel/stat.h"
--+#include "user/user.h"
--+#include "kernel/param.h"
--+
--+#define MAXLINE 512 
--+
--+int getcmd(char *buf, int nbuf) {
--+    memset(buf, 0, nbuf);
--+    int n = read(0, buf, nbuf - 1);
--+    if (n <= 0) return -1;
--+    buf[n] = 0;
--+    return 0;
--+}
--+
--+char whitespace[] = " \t\r\n\v";
--+
--+int gettoken(char **ps, char *es, char **q, char **eq) {
--+    char *s = *ps;
--+
--+    while (s < es && strchr(whitespace, *s)) s++;
--+    if (q) *q = s;
--+
--+    int ret = *s;
--+    if (*s) {  
--+        ret = 'a';
--+        while (s < es && !strchr(whitespace, *s)) s++;
--+    }
--+
--+    if (eq) *eq = s;
--+    if (s < es) *s++ = 0;
--+
--+    while (s < es && strchr(whitespace, *s)) s++;
--+    *ps = s;
--+    return ret;
--+}
--+
--+int main(int argc, char *argv[]) {
--+    char *xargs[MAXARG]; 
--+    for (int i = 1; i < argc; i++) {
--+        xargs[i - 1] = argv[i];  
--+    }
--+
--+    static char buf[MAXLINE];
--+    char *q, *eq;
--+
--+    while (getcmd(buf, sizeof(buf)) >= 0) {
--+        int j = argc - 1;  
--+        char *s = buf;
--+        char *es = s + strlen(s);
--+
--+        while (gettoken(&s, es, &q, &eq) != 0) {
--+            *eq = 0;  
--+            xargs[j] = q;
--+            xargs[j + 1] = 0;  
--+
--+            int pid = fork();
--+            if (pid == 0) {  
--+                exec(xargs[0], xargs);
--+                fprintf(2, "xargs: exec failed for %s\n", xargs[0]);
--+                exit(1);
--+            } else {  
--+                wait(0);
--+            }
--+        }
--+    }
--+
--+    exit(0);
--+}
+new file mode 100644
+index 0000000..9f53287
+--- /dev/null
++++ b/23127048_23127133_23127373.patch
+@@ -0,0 +1,684 @@
++diff --git a/23127048_23127133_23127373.patch b/23127048_23127133_23127373.patch
++deleted file mode 100644
++index bac1b13..0000000
++--- a/23127048_23127133_23127373.patch
+++++ /dev/null
++@@ -1,349 +0,0 @@
++-diff --git a/.gitignore b/.gitignore
++-index 11d0677..ff61dcf 100644
++---- a/.gitignore
++-+++ b/.gitignore
++-@@ -25,3 +25,4 @@ barrier
++- .DS_Store
++- *.dSYM
++- *.pcap
++-+.vscode/
++-\ No newline at end of file
++-diff --git a/Makefile b/Makefile
++-index 74e454f..8f6f7dc 100644
++---- a/Makefile
++-+++ b/Makefile
++-@@ -194,9 +194,11 @@ UPROGS=\
++- 	$U/_grind\
++- 	$U/_wc\
++- 	$U/_zombie\
++--
++--
++--
++-+	$U/_sleep\
++-+	$U/_pingpong\
++-+	$U/_primes\
++-+	$U/_find\
++-+	$U/_xargs\
++- 
++- ifeq ($(LAB),syscall)
++- UPROGS += \
++-diff --git a/time.txt b/time.txt
++-new file mode 100644
++-index 0000000..9a03714
++---- /dev/null
++-+++ b/time.txt
++-@@ -0,0 +1 @@
++-+10
++-\ No newline at end of file
++-diff --git a/user/find.c b/user/find.c
++-new file mode 100644
++-index 0000000..2cbf72d
++---- /dev/null
++-+++ b/user/find.c
++-@@ -0,0 +1,86 @@
++-+#include "kernel/types.h"
++-+#include "kernel/stat.h"
++-+#include "user/user.h"
++-+#include "kernel/fs.h"
++-+#include "kernel/fcntl.h"
++-+
++-+char*
++-+fmtname(char *path)
++-+{
++-+  static char buf[DIRSIZ+1];
++-+  char *p;
++-+
++-+  // Find first character after last slash.
++-+  for(p=path+strlen(path); p >= path && *p != '/'; p--)
++-+    ;
++-+  p++;
++-+
++-+  // Return blank-padded name.
++-+  if(strlen(p) >= DIRSIZ)
++-+    return p;
++-+  memmove(buf, p, strlen(p));
++-+  memset(buf+strlen(p), ' ', DIRSIZ-strlen(p));
++-+  return buf;
++-+}
++-+
++-+void
++-+find(char *path, char *name)
++-+{
++-+  char buf[512], *p;
++-+  int fd;
++-+  struct dirent de;
++-+  struct stat st;
++-+
++-+  if((fd = open(path, O_RDONLY)) < 0){
++-+    fprintf(2, "find: cannot open %s\n", path);
++-+    return;
++-+  }
++-+
++-+  if(fstat(fd, &st) < 0){
++-+    fprintf(2, "find: cannot stat %s\n", path);
++-+    close(fd);
++-+    return;
++-+  }
++-+
++-+  if(st.type != T_DIR)
++-+  {
++-+    fprintf(2, "find: invalid directory\n");
++-+    close(fd);
++-+    return;
++-+  }
++-+
++-+    strcpy(buf, path);
++-+    p = buf+strlen(buf);
++-+    *p++ = '/';
++-+    while(read(fd, &de, sizeof(de)) == sizeof(de)){
++-+      if(de.inum == 0)
++-+        continue;
++-+      memmove(p, de.name, DIRSIZ);
++-+      p[DIRSIZ] = 0;
++-+      if(stat(buf, &st) < 0){
++-+        printf("find: cannot stat %s\n", buf);
++-+        continue;
++-+      }
++-+
++-+    if(st.type==T_DIR && strcmp(p, ".")!=0 && strcmp(p, "..")!=0)
++-+    {
++-+        find(buf, name);
++-+    } else if(st.type==T_FILE && strcmp(p, name)==0)
++-+    {
++-+        printf("%s\n", buf);
++-+    }
++-+  }
++-+  close(fd);
++-+}
++-+
++-+int 
++-+main(int argc, char *argv[])
++-+{
++-+  if(argc != 3)
++-+  {
++-+    fprintf(2, "Invalid usage!\n");
++-+    exit(1);
++-+  }
++-+  find(argv[1], argv[2]);
++-+  exit(0);
++-+}
++-diff --git a/user/pingpong.c b/user/pingpong.c
++-new file mode 100644
++-index 0000000..92f4c21
++---- /dev/null
++-+++ b/user/pingpong.c
++-@@ -0,0 +1,57 @@
++-+#include "kernel/types.h"
++-+#include "user.h"
++-+
++-+int main(int argc, char* argv[]) {
++-+    int pipePing[2], pipePong[2];
++-+    if(pipe(pipePing) == -1 || pipe(pipePong) == -1) {
++-+        fprintf(2, "Error: can't create pipe\n");
++-+        exit(1);
++-+    }
++-+
++-+
++-+    char buffer = 'c';
++-+    int pid = fork();
++-+    if(pid < 0) {
++-+        fprintf(2, "Error: can't fork\n");
++-+        exit(1);
++-+    }
++-+
++-+    if(pid == 0) { // child process
++-+        close(pipePing[1]);
++-+        close(pipePong[0]);
++-+
++-+        if(read(pipePing[0], &buffer, 1) == -1) {
++-+            fprintf(2, "Error: child can't read\n");
++-+            exit(1);
++-+        }
++-+        fprintf(1, "%d: received ping\n", getpid());
++-+        close(pipePing[0]);
++-+
++-+        if(write(pipePong[1], &buffer, 1) == -1) {
++-+            fprintf(2, "Error: child can't write\n");
++-+            exit(1);
++-+        }
++-+        close(pipePong[1]);
++-+        exit(0);
++-+    }
++-+
++-+    else { // parent process
++-+        close(pipePing[0]);
++-+        close(pipePong[1]);
++-+        
++-+        if(write(pipePing[1], &buffer, 1) == -1) {
++-+            fprintf(2, "Error: parent can't write\n");
++-+            exit(1);
++-+        }
++-+        close(pipePing[1]);
++-+
++-+        if(read(pipePong[0], &buffer, 1) == -1) {
++-+            fprintf(2, "Error: parent can't read\n");
++-+            exit(1);
++-+        }
++-+        fprintf(1, "%d: received pong\n", getpid());
++-+        close(pipePong[0]);
++-+        wait(0);
++-+        exit(0);
++-+    }
++-+}
++-\ No newline at end of file
++-diff --git a/user/primes.c b/user/primes.c
++-new file mode 100644
++-index 0000000..ba8332e
++---- /dev/null
++-+++ b/user/primes.c
++-@@ -0,0 +1,54 @@
++-+#include "kernel/types.h"
++-+#include "user.h"
++-+
++-+void sieve(int pipeLeft[2]) __attribute__((noreturn));
++-+
++-+void sieve(int pipeLeft[2]) {
++-+    close(pipeLeft[1]);
++-+    int prime, n;
++-+    
++-+    if(read(pipeLeft[0], &prime, sizeof(int)) == 0) {
++-+        exit(0);
++-+    }
++-+    fprintf(1, "prime %d\n", prime);
++-+    
++-+    int pipeRight[2];
++-+    pipe(pipeRight);
++-+    int pid = fork();
++-+    if(pid) {
++-+        close(pipeRight[0]);
++-+        while(read(pipeLeft[0], &n, sizeof(int)) > 0) {
++-+            if(n % prime != 0) {
++-+                write(pipeRight[1], &n, sizeof(int));
++-+            }
++-+        }
++-+        close(pipeRight[1]);
++-+        close(pipeLeft[0]);
++-+        wait(0);
++-+        exit(0);
++-+    } else {
++-+        close(pipeLeft[0]);
++-+        close(pipeRight[1]);
++-+        sieve(pipeRight);
++-+    }
++-+}
++-+
++-+int main(int argc, char* argv[]) {
++-+    int pipeMain[2];
++-+    pipe(pipeMain);
++-+
++-+    int pid = fork();
++-+    if(!pid) {
++-+        close(pipeMain[1]);
++-+        sieve(pipeMain);
++-+    } else {
++-+        close(pipeMain[0]);
++-+        for(int i = 2; i <= 280; i++) {
++-+            write(pipeMain[1], &i, sizeof(int));
++-+        }
++-+        close(pipeMain[1]);
++-+        wait(0); 
++-+    }
++-+    
++-+    exit(0);
++-+}
++-\ No newline at end of file
++-diff --git a/user/sleep.c b/user/sleep.c
++-new file mode 100644
++-index 0000000..3fa4a64
++---- /dev/null
++-+++ b/user/sleep.c
++-@@ -0,0 +1,13 @@
++-+#include "kernel/types.h"
++-+#include "user.h"
++-+
++-+int main(int argc, char* argv[]) {
++-+    if(argc != 2) {
++-+        fprintf(2, "Usage: sleep <ticks>\n");
++-+        exit(1);
++-+    }
++-+
++-+    int n = atoi(argv[1]);
++-+    sleep(n);
++-+    exit(0);
++-+}
++-\ No newline at end of file
++-diff --git a/user/xargs.c b/user/xargs.c
++-new file mode 100644
++-index 0000000..624b854
++---- /dev/null
++-+++ b/user/xargs.c
++-@@ -0,0 +1,69 @@
++-+#include "kernel/types.h"
++-+#include "kernel/stat.h"
++-+#include "user/user.h"
++-+#include "kernel/param.h"
++-+
++-+#define MAXLINE 512 
++-+
++-+int getcmd(char *buf, int nbuf) {
++-+    memset(buf, 0, nbuf);
++-+    int n = read(0, buf, nbuf - 1);
++-+    if (n <= 0) return -1;
++-+    buf[n] = 0;
++-+    return 0;
++-+}
++-+
++-+char whitespace[] = " \t\r\n\v";
++-+
++-+int gettoken(char **ps, char *es, char **q, char **eq) {
++-+    char *s = *ps;
++-+
++-+    while (s < es && strchr(whitespace, *s)) s++;
++-+    if (q) *q = s;
++-+
++-+    int ret = *s;
++-+    if (*s) {  
++-+        ret = 'a';
++-+        while (s < es && !strchr(whitespace, *s)) s++;
++-+    }
++-+
++-+    if (eq) *eq = s;
++-+    if (s < es) *s++ = 0;
++-+
++-+    while (s < es && strchr(whitespace, *s)) s++;
++-+    *ps = s;
++-+    return ret;
++-+}
++-+
++-+int main(int argc, char *argv[]) {
++-+    char *xargs[MAXARG]; 
++-+    for (int i = 1; i < argc; i++) {
++-+        xargs[i - 1] = argv[i];  
++-+    }
++-+
++-+    static char buf[MAXLINE];
++-+    char *q, *eq;
++-+
++-+    while (getcmd(buf, sizeof(buf)) >= 0) {
++-+        int j = argc - 1;  
++-+        char *s = buf;
++-+        char *es = s + strlen(s);
++-+
++-+        while (gettoken(&s, es, &q, &eq) != 0) {
++-+            *eq = 0;  
++-+            xargs[j] = q;
++-+            xargs[j + 1] = 0;  
++-+
++-+            int pid = fork();
++-+            if (pid == 0) {  
++-+                exec(xargs[0], xargs);
++-+                fprintf(2, "xargs: exec failed for %s\n", xargs[0]);
++-+                exit(1);
++-+            } else {  
++-+                wait(0);
++-+            }
++-+        }
++-+    }
++-+
++-+    exit(0);
++-+}
++diff --git a/Makefile b/Makefile
++index 8f6f7dc..74e454f 100644
++--- a/Makefile
+++++ b/Makefile
++@@ -194,11 +194,9 @@ UPROGS=\
++ 	$U/_grind\
++ 	$U/_wc\
++ 	$U/_zombie\
++-	$U/_sleep\
++-	$U/_pingpong\
++-	$U/_primes\
++-	$U/_find\
++-	$U/_xargs\
+++
+++
+++
++ 
++ ifeq ($(LAB),syscall)
++ UPROGS += \
++diff --git a/time.txt b/time.txt
++deleted file mode 100644
++index 9a03714..0000000
++--- a/time.txt
+++++ /dev/null
++@@ -1 +0,0 @@
++-10
++\ No newline at end of file
++diff --git a/user/find.c b/user/find.c
++deleted file mode 100644
++index 8c42186..0000000
++--- a/user/find.c
+++++ /dev/null
++@@ -1,67 +0,0 @@
++-#include "kernel/types.h"
++-#include "kernel/stat.h"
++-#include "user/user.h"
++-#include "kernel/fs.h"
++-#include "kernel/fcntl.h"
++-
++-void
++-find(char *path, char *name)
++-{
++-  char buf[512], *p;
++-  int fd;
++-  struct dirent de;
++-  struct stat st;
++-
++-  if((fd = open(path, O_RDONLY)) < 0){
++-    fprintf(2, "find: cannot open %s\n", path);
++-    return;
++-  }
++-
++-  if(fstat(fd, &st) < 0){
++-    fprintf(2, "find: cannot stat %s\n", path);
++-    close(fd);
++-    return;
++-  }
++-
++-  if(st.type != T_DIR)
++-  {
++-    fprintf(2, "find: invalid directory\n");
++-    close(fd);
++-    return;
++-  }
++-
++-    strcpy(buf, path);
++-    p = buf+strlen(buf);
++-    *p++ = '/';
++-    while(read(fd, &de, sizeof(de)) == sizeof(de)){
++-      if(de.inum == 0)
++-        continue;
++-      memmove(p, de.name, DIRSIZ);
++-      p[DIRSIZ] = 0;
++-      if(stat(buf, &st) < 0){
++-        printf("find: cannot stat %s\n", buf);
++-        continue;
++-      }
++-
++-    if(st.type==T_DIR && strcmp(p, ".")!=0 && strcmp(p, "..")!=0)
++-    {
++-        find(buf, name);
++-    } else if(st.type==T_FILE && strcmp(p, name)==0)
++-    {
++-        printf("%s\n", buf);
++-    }
++-  }
++-  close(fd);
++-}
++-
++-int 
++-main(int argc, char *argv[])
++-{
++-  if(argc != 3)
++-  {
++-    fprintf(2, "Invalid usage!\n");
++-    exit(1);
++-  }
++-  find(argv[1], argv[2]);
++-  exit(0);
++-}
++diff --git a/user/pingpong.c b/user/pingpong.c
++deleted file mode 100644
++index 92f4c21..0000000
++--- a/user/pingpong.c
+++++ /dev/null
++@@ -1,57 +0,0 @@
++-#include "kernel/types.h"
++-#include "user.h"
++-
++-int main(int argc, char* argv[]) {
++-    int pipePing[2], pipePong[2];
++-    if(pipe(pipePing) == -1 || pipe(pipePong) == -1) {
++-        fprintf(2, "Error: can't create pipe\n");
++-        exit(1);
++-    }
++-
++-
++-    char buffer = 'c';
++-    int pid = fork();
++-    if(pid < 0) {
++-        fprintf(2, "Error: can't fork\n");
++-        exit(1);
++-    }
++-
++-    if(pid == 0) { // child process
++-        close(pipePing[1]);
++-        close(pipePong[0]);
++-
++-        if(read(pipePing[0], &buffer, 1) == -1) {
++-            fprintf(2, "Error: child can't read\n");
++-            exit(1);
++-        }
++-        fprintf(1, "%d: received ping\n", getpid());
++-        close(pipePing[0]);
++-
++-        if(write(pipePong[1], &buffer, 1) == -1) {
++-            fprintf(2, "Error: child can't write\n");
++-            exit(1);
++-        }
++-        close(pipePong[1]);
++-        exit(0);
++-    }
++-
++-    else { // parent process
++-        close(pipePing[0]);
++-        close(pipePong[1]);
++-        
++-        if(write(pipePing[1], &buffer, 1) == -1) {
++-            fprintf(2, "Error: parent can't write\n");
++-            exit(1);
++-        }
++-        close(pipePing[1]);
++-
++-        if(read(pipePong[0], &buffer, 1) == -1) {
++-            fprintf(2, "Error: parent can't read\n");
++-            exit(1);
++-        }
++-        fprintf(1, "%d: received pong\n", getpid());
++-        close(pipePong[0]);
++-        wait(0);
++-        exit(0);
++-    }
++-}
++\ No newline at end of file
++diff --git a/user/primes.c b/user/primes.c
++deleted file mode 100644
++index ba8332e..0000000
++--- a/user/primes.c
+++++ /dev/null
++@@ -1,54 +0,0 @@
++-#include "kernel/types.h"
++-#include "user.h"
++-
++-void sieve(int pipeLeft[2]) __attribute__((noreturn));
++-
++-void sieve(int pipeLeft[2]) {
++-    close(pipeLeft[1]);
++-    int prime, n;
++-    
++-    if(read(pipeLeft[0], &prime, sizeof(int)) == 0) {
++-        exit(0);
++-    }
++-    fprintf(1, "prime %d\n", prime);
++-    
++-    int pipeRight[2];
++-    pipe(pipeRight);
++-    int pid = fork();
++-    if(pid) {
++-        close(pipeRight[0]);
++-        while(read(pipeLeft[0], &n, sizeof(int)) > 0) {
++-            if(n % prime != 0) {
++-                write(pipeRight[1], &n, sizeof(int));
++-            }
++-        }
++-        close(pipeRight[1]);
++-        close(pipeLeft[0]);
++-        wait(0);
++-        exit(0);
++-    } else {
++-        close(pipeLeft[0]);
++-        close(pipeRight[1]);
++-        sieve(pipeRight);
++-    }
++-}
++-
++-int main(int argc, char* argv[]) {
++-    int pipeMain[2];
++-    pipe(pipeMain);
++-
++-    int pid = fork();
++-    if(!pid) {
++-        close(pipeMain[1]);
++-        sieve(pipeMain);
++-    } else {
++-        close(pipeMain[0]);
++-        for(int i = 2; i <= 280; i++) {
++-            write(pipeMain[1], &i, sizeof(int));
++-        }
++-        close(pipeMain[1]);
++-        wait(0); 
++-    }
++-    
++-    exit(0);
++-}
++\ No newline at end of file
++diff --git a/user/sleep.c b/user/sleep.c
++deleted file mode 100644
++index 3fa4a64..0000000
++--- a/user/sleep.c
+++++ /dev/null
++@@ -1,13 +0,0 @@
++-#include "kernel/types.h"
++-#include "user.h"
++-
++-int main(int argc, char* argv[]) {
++-    if(argc != 2) {
++-        fprintf(2, "Usage: sleep <ticks>\n");
++-        exit(1);
++-    }
++-
++-    int n = atoi(argv[1]);
++-    sleep(n);
++-    exit(0);
++-}
++\ No newline at end of file
++diff --git a/user/xargs.c b/user/xargs.c
++deleted file mode 100644
++index 7b982a3..0000000
++--- a/user/xargs.c
+++++ /dev/null
++@@ -1,78 +0,0 @@
++-#include "kernel/types.h"
++-#include "kernel/stat.h"
++-#include "user/user.h"
++-#include "kernel/param.h"
++-
++-#define MAXLINE 512 // Gioi han do dai dau vao
++-#define MAXARGS MAXARG // Max tham so
++-
++-// Stdin
++-int read_command(char *buffer, int buffer_size) {
++-    memset(buffer, 0, buffer_size); 
++-    int length = read(0, buffer, buffer_size - 1); // stdin
++-    if (length <= 0) return -1; 
++-    buffer[length] = 0;
++-    return 0;
++-}
++-
++-char whitespace_chars[] = " \t\r\n\v"; // cac ki tu bo qua
++-
++-// Tach token
++-int extract_token(char **current_pos, char *end_pos, char **token_start, char **token_end) {
++-    char *pos = *current_pos;
++-
++-    // Bo khoang trang
++-    while (pos < end_pos && strchr(whitespace_chars, *pos)) pos++;
++-    if (token_start) *token_start = pos; // Luu vi tri bat dau token
++-
++-    int token_type = *pos; // Ki tu dau tien cua token
++-    if (*pos) {  
++-        token_type = 'a'; // Neu co token hop le, dat thanh ki tu a (sau nay co the phan loai)
++-        while (pos < end_pos && !strchr(whitespace_chars, *pos)) pos++; // Vi tri ket thuc
++-    }
++-
++-    if (token_end) *token_end = pos; // Vi tri ket thuc cua toekn
++-    if (pos < end_pos) *pos++ = 0; // Tach token
++-
++-    // Bo khoang trang
++-    while (pos < end_pos && strchr(whitespace_chars, *pos)) pos++;
++-    *current_pos = pos; // cap nhat pos tiep theo
++-    return token_type;
++-}
++-
++-int main(int argc, char *argv[]) {
++-    char *command_args[MAXARGS]; // mang chua cac tham so
++-    // Luu cac doi so tu dong lenh
++-    for (int i = 1; i < argc; i++) {
++-        command_args[i - 1] = argv[i];
++-    }
++-
++-    static char input_buffer[MAXLINE];
++-    char *token_start, *token_end; // con tro xac dinh vi tri token
++-
++-    // Doc lenh va xu li
++-    while (read_command(input_buffer, sizeof(input_buffer)) >= 0) {
++-        int arg_index = argc - 1; 
++-        char *current_pos = input_buffer;
++-        char *end_pos = current_pos + strlen(current_pos);
++-
++-        // Lap qua tung token
++-        while (extract_token(&current_pos, end_pos, &token_start, &token_end) != 0) {
++-            *token_end = 0;
++-            command_args[arg_index] = token_start; // Luu token
++-            command_args[arg_index + 1] = 0;
++-
++-            // Tien trinh con de thuc hien lenh
++-            int pid = fork();
++-            if (pid == 0) {  
++-                exec(command_args[0], command_args);
++-                fprintf(2, "xargs: exec failed for %s\n", command_args[0]); // Bao loi
++-                exit(1);
++-            } else {  
++-                wait(0); // Tien trinh cha cho tien trinh con
++-            }
++-        }
++-    }
++-
++-    exit(0);
++-}
 diff --git a/Makefile b/Makefile
-index 8f6f7dc..74e454f 100644
+index 74e454f..8f6f7dc 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -194,11 +194,9 @@ UPROGS=\
+@@ -194,9 +194,11 @@ UPROGS=\
  	$U/_grind\
  	$U/_wc\
  	$U/_zombie\
--	$U/_sleep\
--	$U/_pingpong\
--	$U/_primes\
--	$U/_find\
--	$U/_xargs\
-+
-+
-+
+-
+-
+-
++	$U/_sleep\
++	$U/_pingpong\
++	$U/_primes\
++	$U/_find\
++	$U/_xargs\
  
  ifeq ($(LAB),syscall)
  UPROGS += \
 diff --git a/time.txt b/time.txt
-deleted file mode 100644
-index 9a03714..0000000
---- a/time.txt
-+++ /dev/null
-@@ -1 +0,0 @@
--10
+new file mode 100644
+index 0000000..9a03714
+--- /dev/null
++++ b/time.txt
+@@ -0,0 +1 @@
++10
 \ No newline at end of file
 diff --git a/user/find.c b/user/find.c
-deleted file mode 100644
-index 8c42186..0000000
---- a/user/find.c
-+++ /dev/null
-@@ -1,67 +0,0 @@
--#include "kernel/types.h"
--#include "kernel/stat.h"
--#include "user/user.h"
--#include "kernel/fs.h"
--#include "kernel/fcntl.h"
--
--void
--find(char *path, char *name)
--{
--  char buf[512], *p;
--  int fd;
--  struct dirent de;
--  struct stat st;
--
--  if((fd = open(path, O_RDONLY)) < 0){
--    fprintf(2, "find: cannot open %s\n", path);
--    return;
--  }
--
--  if(fstat(fd, &st) < 0){
--    fprintf(2, "find: cannot stat %s\n", path);
--    close(fd);
--    return;
--  }
--
--  if(st.type != T_DIR)
--  {
--    fprintf(2, "find: invalid directory\n");
--    close(fd);
--    return;
--  }
--
--    strcpy(buf, path);
--    p = buf+strlen(buf);
--    *p++ = '/';
--    while(read(fd, &de, sizeof(de)) == sizeof(de)){
--      if(de.inum == 0)
--        continue;
--      memmove(p, de.name, DIRSIZ);
--      p[DIRSIZ] = 0;
--      if(stat(buf, &st) < 0){
--        printf("find: cannot stat %s\n", buf);
--        continue;
--      }
--
--    if(st.type==T_DIR && strcmp(p, ".")!=0 && strcmp(p, "..")!=0)
--    {
--        find(buf, name);
--    } else if(st.type==T_FILE && strcmp(p, name)==0)
--    {
--        printf("%s\n", buf);
--    }
--  }
--  close(fd);
--}
--
--int 
--main(int argc, char *argv[])
--{
--  if(argc != 3)
--  {
--    fprintf(2, "Invalid usage!\n");
--    exit(1);
--  }
--  find(argv[1], argv[2]);
--  exit(0);
--}
+new file mode 100644
+index 0000000..8c42186
+--- /dev/null
++++ b/user/find.c
+@@ -0,0 +1,67 @@
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "user/user.h"
++#include "kernel/fs.h"
++#include "kernel/fcntl.h"
++
++void
++find(char *path, char *name)
++{
++  char buf[512], *p;
++  int fd;
++  struct dirent de;
++  struct stat st;
++
++  if((fd = open(path, O_RDONLY)) < 0){
++    fprintf(2, "find: cannot open %s\n", path);
++    return;
++  }
++
++  if(fstat(fd, &st) < 0){
++    fprintf(2, "find: cannot stat %s\n", path);
++    close(fd);
++    return;
++  }
++
++  if(st.type != T_DIR)
++  {
++    fprintf(2, "find: invalid directory\n");
++    close(fd);
++    return;
++  }
++
++    strcpy(buf, path);
++    p = buf+strlen(buf);
++    *p++ = '/';
++    while(read(fd, &de, sizeof(de)) == sizeof(de)){
++      if(de.inum == 0)
++        continue;
++      memmove(p, de.name, DIRSIZ);
++      p[DIRSIZ] = 0;
++      if(stat(buf, &st) < 0){
++        printf("find: cannot stat %s\n", buf);
++        continue;
++      }
++
++    if(st.type==T_DIR && strcmp(p, ".")!=0 && strcmp(p, "..")!=0)
++    {
++        find(buf, name);
++    } else if(st.type==T_FILE && strcmp(p, name)==0)
++    {
++        printf("%s\n", buf);
++    }
++  }
++  close(fd);
++}
++
++int 
++main(int argc, char *argv[])
++{
++  if(argc != 3)
++  {
++    fprintf(2, "Invalid usage!\n");
++    exit(1);
++  }
++  find(argv[1], argv[2]);
++  exit(0);
++}
 diff --git a/user/pingpong.c b/user/pingpong.c
-deleted file mode 100644
-index 92f4c21..0000000
---- a/user/pingpong.c
-+++ /dev/null
-@@ -1,57 +0,0 @@
--#include "kernel/types.h"
--#include "user.h"
--
--int main(int argc, char* argv[]) {
--    int pipePing[2], pipePong[2];
--    if(pipe(pipePing) == -1 || pipe(pipePong) == -1) {
--        fprintf(2, "Error: can't create pipe\n");
--        exit(1);
--    }
--
--
--    char buffer = 'c';
--    int pid = fork();
--    if(pid < 0) {
--        fprintf(2, "Error: can't fork\n");
--        exit(1);
--    }
--
--    if(pid == 0) { // child process
--        close(pipePing[1]);
--        close(pipePong[0]);
--
--        if(read(pipePing[0], &buffer, 1) == -1) {
--            fprintf(2, "Error: child can't read\n");
--            exit(1);
--        }
--        fprintf(1, "%d: received ping\n", getpid());
--        close(pipePing[0]);
--
--        if(write(pipePong[1], &buffer, 1) == -1) {
--            fprintf(2, "Error: child can't write\n");
--            exit(1);
--        }
--        close(pipePong[1]);
--        exit(0);
--    }
--
--    else { // parent process
--        close(pipePing[0]);
--        close(pipePong[1]);
--        
--        if(write(pipePing[1], &buffer, 1) == -1) {
--            fprintf(2, "Error: parent can't write\n");
--            exit(1);
--        }
--        close(pipePing[1]);
--
--        if(read(pipePong[0], &buffer, 1) == -1) {
--            fprintf(2, "Error: parent can't read\n");
--            exit(1);
--        }
--        fprintf(1, "%d: received pong\n", getpid());
--        close(pipePong[0]);
--        wait(0);
--        exit(0);
--    }
--}
+new file mode 100644
+index 0000000..92f4c21
+--- /dev/null
++++ b/user/pingpong.c
+@@ -0,0 +1,57 @@
++#include "kernel/types.h"
++#include "user.h"
++
++int main(int argc, char* argv[]) {
++    int pipePing[2], pipePong[2];
++    if(pipe(pipePing) == -1 || pipe(pipePong) == -1) {
++        fprintf(2, "Error: can't create pipe\n");
++        exit(1);
++    }
++
++
++    char buffer = 'c';
++    int pid = fork();
++    if(pid < 0) {
++        fprintf(2, "Error: can't fork\n");
++        exit(1);
++    }
++
++    if(pid == 0) { // child process
++        close(pipePing[1]);
++        close(pipePong[0]);
++
++        if(read(pipePing[0], &buffer, 1) == -1) {
++            fprintf(2, "Error: child can't read\n");
++            exit(1);
++        }
++        fprintf(1, "%d: received ping\n", getpid());
++        close(pipePing[0]);
++
++        if(write(pipePong[1], &buffer, 1) == -1) {
++            fprintf(2, "Error: child can't write\n");
++            exit(1);
++        }
++        close(pipePong[1]);
++        exit(0);
++    }
++
++    else { // parent process
++        close(pipePing[0]);
++        close(pipePong[1]);
++        
++        if(write(pipePing[1], &buffer, 1) == -1) {
++            fprintf(2, "Error: parent can't write\n");
++            exit(1);
++        }
++        close(pipePing[1]);
++
++        if(read(pipePong[0], &buffer, 1) == -1) {
++            fprintf(2, "Error: parent can't read\n");
++            exit(1);
++        }
++        fprintf(1, "%d: received pong\n", getpid());
++        close(pipePong[0]);
++        wait(0);
++        exit(0);
++    }
++}
 \ No newline at end of file
 diff --git a/user/primes.c b/user/primes.c
-deleted file mode 100644
-index ba8332e..0000000
---- a/user/primes.c
-+++ /dev/null
-@@ -1,54 +0,0 @@
--#include "kernel/types.h"
--#include "user.h"
--
--void sieve(int pipeLeft[2]) __attribute__((noreturn));
--
--void sieve(int pipeLeft[2]) {
--    close(pipeLeft[1]);
--    int prime, n;
--    
--    if(read(pipeLeft[0], &prime, sizeof(int)) == 0) {
--        exit(0);
--    }
--    fprintf(1, "prime %d\n", prime);
--    
--    int pipeRight[2];
--    pipe(pipeRight);
--    int pid = fork();
--    if(pid) {
--        close(pipeRight[0]);
--        while(read(pipeLeft[0], &n, sizeof(int)) > 0) {
--            if(n % prime != 0) {
--                write(pipeRight[1], &n, sizeof(int));
--            }
--        }
--        close(pipeRight[1]);
--        close(pipeLeft[0]);
--        wait(0);
--        exit(0);
--    } else {
--        close(pipeLeft[0]);
--        close(pipeRight[1]);
--        sieve(pipeRight);
--    }
--}
--
--int main(int argc, char* argv[]) {
--    int pipeMain[2];
--    pipe(pipeMain);
--
--    int pid = fork();
--    if(!pid) {
--        close(pipeMain[1]);
--        sieve(pipeMain);
--    } else {
--        close(pipeMain[0]);
--        for(int i = 2; i <= 280; i++) {
--            write(pipeMain[1], &i, sizeof(int));
--        }
--        close(pipeMain[1]);
--        wait(0); 
--    }
--    
--    exit(0);
--}
+new file mode 100644
+index 0000000..ba8332e
+--- /dev/null
++++ b/user/primes.c
+@@ -0,0 +1,54 @@
++#include "kernel/types.h"
++#include "user.h"
++
++void sieve(int pipeLeft[2]) __attribute__((noreturn));
++
++void sieve(int pipeLeft[2]) {
++    close(pipeLeft[1]);
++    int prime, n;
++    
++    if(read(pipeLeft[0], &prime, sizeof(int)) == 0) {
++        exit(0);
++    }
++    fprintf(1, "prime %d\n", prime);
++    
++    int pipeRight[2];
++    pipe(pipeRight);
++    int pid = fork();
++    if(pid) {
++        close(pipeRight[0]);
++        while(read(pipeLeft[0], &n, sizeof(int)) > 0) {
++            if(n % prime != 0) {
++                write(pipeRight[1], &n, sizeof(int));
++            }
++        }
++        close(pipeRight[1]);
++        close(pipeLeft[0]);
++        wait(0);
++        exit(0);
++    } else {
++        close(pipeLeft[0]);
++        close(pipeRight[1]);
++        sieve(pipeRight);
++    }
++}
++
++int main(int argc, char* argv[]) {
++    int pipeMain[2];
++    pipe(pipeMain);
++
++    int pid = fork();
++    if(!pid) {
++        close(pipeMain[1]);
++        sieve(pipeMain);
++    } else {
++        close(pipeMain[0]);
++        for(int i = 2; i <= 280; i++) {
++            write(pipeMain[1], &i, sizeof(int));
++        }
++        close(pipeMain[1]);
++        wait(0); 
++    }
++    
++    exit(0);
++}
 \ No newline at end of file
 diff --git a/user/sleep.c b/user/sleep.c
-deleted file mode 100644
-index 3fa4a64..0000000
---- a/user/sleep.c
-+++ /dev/null
-@@ -1,13 +0,0 @@
--#include "kernel/types.h"
--#include "user.h"
--
--int main(int argc, char* argv[]) {
--    if(argc != 2) {
--        fprintf(2, "Usage: sleep <ticks>\n");
--        exit(1);
--    }
--
--    int n = atoi(argv[1]);
--    sleep(n);
--    exit(0);
--}
+new file mode 100644
+index 0000000..3fa4a64
+--- /dev/null
++++ b/user/sleep.c
+@@ -0,0 +1,13 @@
++#include "kernel/types.h"
++#include "user.h"
++
++int main(int argc, char* argv[]) {
++    if(argc != 2) {
++        fprintf(2, "Usage: sleep <ticks>\n");
++        exit(1);
++    }
++
++    int n = atoi(argv[1]);
++    sleep(n);
++    exit(0);
++}
 \ No newline at end of file
 diff --git a/user/xargs.c b/user/xargs.c
-deleted file mode 100644
-index 7b982a3..0000000
---- a/user/xargs.c
-+++ /dev/null
-@@ -1,78 +0,0 @@
--#include "kernel/types.h"
--#include "kernel/stat.h"
--#include "user/user.h"
--#include "kernel/param.h"
--
--#define MAXLINE 512 // Gioi han do dai dau vao
--#define MAXARGS MAXARG // Max tham so
--
--// Stdin
--int read_command(char *buffer, int buffer_size) {
--    memset(buffer, 0, buffer_size); 
--    int length = read(0, buffer, buffer_size - 1); // stdin
--    if (length <= 0) return -1; 
--    buffer[length] = 0;
--    return 0;
--}
--
--char whitespace_chars[] = " \t\r\n\v"; // cac ki tu bo qua
--
--// Tach token
--int extract_token(char **current_pos, char *end_pos, char **token_start, char **token_end) {
--    char *pos = *current_pos;
--
--    // Bo khoang trang
--    while (pos < end_pos && strchr(whitespace_chars, *pos)) pos++;
--    if (token_start) *token_start = pos; // Luu vi tri bat dau token
--
--    int token_type = *pos; // Ki tu dau tien cua token
--    if (*pos) {  
--        token_type = 'a'; // Neu co token hop le, dat thanh ki tu a (sau nay co the phan loai)
--        while (pos < end_pos && !strchr(whitespace_chars, *pos)) pos++; // Vi tri ket thuc
--    }
--
--    if (token_end) *token_end = pos; // Vi tri ket thuc cua toekn
--    if (pos < end_pos) *pos++ = 0; // Tach token
--
--    // Bo khoang trang
--    while (pos < end_pos && strchr(whitespace_chars, *pos)) pos++;
--    *current_pos = pos; // cap nhat pos tiep theo
--    return token_type;
--}
--
--int main(int argc, char *argv[]) {
--    char *command_args[MAXARGS]; // mang chua cac tham so
--    // Luu cac doi so tu dong lenh
--    for (int i = 1; i < argc; i++) {
--        command_args[i - 1] = argv[i];
--    }
--
--    static char input_buffer[MAXLINE];
--    char *token_start, *token_end; // con tro xac dinh vi tri token
--
--    // Doc lenh va xu li
--    while (read_command(input_buffer, sizeof(input_buffer)) >= 0) {
--        int arg_index = argc - 1; 
--        char *current_pos = input_buffer;
--        char *end_pos = current_pos + strlen(current_pos);
--
--        // Lap qua tung token
--        while (extract_token(&current_pos, end_pos, &token_start, &token_end) != 0) {
--            *token_end = 0;
--            command_args[arg_index] = token_start; // Luu token
--            command_args[arg_index + 1] = 0;
--
--            // Tien trinh con de thuc hien lenh
--            int pid = fork();
--            if (pid == 0) {  
--                exec(command_args[0], command_args);
--                fprintf(2, "xargs: exec failed for %s\n", command_args[0]); // Bao loi
--                exit(1);
--            } else {  
--                wait(0); // Tien trinh cha cho tien trinh con
--            }
--        }
--    }
--
--    exit(0);
--}
+new file mode 100644
+index 0000000..7b982a3
+--- /dev/null
++++ b/user/xargs.c
+@@ -0,0 +1,78 @@
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "user/user.h"
++#include "kernel/param.h"
++
++#define MAXLINE 512 // Gioi han do dai dau vao
++#define MAXARGS MAXARG // Max tham so
++
++// Stdin
++int read_command(char *buffer, int buffer_size) {
++    memset(buffer, 0, buffer_size); 
++    int length = read(0, buffer, buffer_size - 1); // stdin
++    if (length <= 0) return -1; 
++    buffer[length] = 0;
++    return 0;
++}
++
++char whitespace_chars[] = " \t\r\n\v"; // cac ki tu bo qua
++
++// Tach token
++int extract_token(char **current_pos, char *end_pos, char **token_start, char **token_end) {
++    char *pos = *current_pos;
++
++    // Bo khoang trang
++    while (pos < end_pos && strchr(whitespace_chars, *pos)) pos++;
++    if (token_start) *token_start = pos; // Luu vi tri bat dau token
++
++    int token_type = *pos; // Ki tu dau tien cua token
++    if (*pos) {  
++        token_type = 'a'; // Neu co token hop le, dat thanh ki tu a (sau nay co the phan loai)
++        while (pos < end_pos && !strchr(whitespace_chars, *pos)) pos++; // Vi tri ket thuc
++    }
++
++    if (token_end) *token_end = pos; // Vi tri ket thuc cua toekn
++    if (pos < end_pos) *pos++ = 0; // Tach token
++
++    // Bo khoang trang
++    while (pos < end_pos && strchr(whitespace_chars, *pos)) pos++;
++    *current_pos = pos; // cap nhat pos tiep theo
++    return token_type;
++}
++
++int main(int argc, char *argv[]) {
++    char *command_args[MAXARGS]; // mang chua cac tham so
++    // Luu cac doi so tu dong lenh
++    for (int i = 1; i < argc; i++) {
++        command_args[i - 1] = argv[i];
++    }
++
++    static char input_buffer[MAXLINE];
++    char *token_start, *token_end; // con tro xac dinh vi tri token
++
++    // Doc lenh va xu li
++    while (read_command(input_buffer, sizeof(input_buffer)) >= 0) {
++        int arg_index = argc - 1; 
++        char *current_pos = input_buffer;
++        char *end_pos = current_pos + strlen(current_pos);
++
++        // Lap qua tung token
++        while (extract_token(&current_pos, end_pos, &token_start, &token_end) != 0) {
++            *token_end = 0;
++            command_args[arg_index] = token_start; // Luu token
++            command_args[arg_index + 1] = 0;
++
++            // Tien trinh con de thuc hien lenh
++            int pid = fork();
++            if (pid == 0) {  
++                exec(command_args[0], command_args);
++                fprintf(2, "xargs: exec failed for %s\n", command_args[0]); // Bao loi
++                exit(1);
++            } else {  
++                wait(0); // Tien trinh cha cho tien trinh con
++            }
++        }
++    }
++
++    exit(0);
++}
