@@ -3,64 +3,73 @@
 #include "user/user.h"
 #include "kernel/param.h"
 
-#define MAXLINE 512 
+#define MAXLINE 512 // Gioi han do dai dau vao
+#define MAXARGS MAXARG // Max tham so
 
-int getcmd(char *buf, int nbuf) {
-    memset(buf, 0, nbuf);
-    int n = read(0, buf, nbuf - 1);
-    if (n <= 0) return -1;
-    buf[n] = 0;
+// Stdin
+int read_command(char *buffer, int buffer_size) {
+    memset(buffer, 0, buffer_size); 
+    int length = read(0, buffer, buffer_size - 1); // stdin
+    if (length <= 0) return -1; 
+    buffer[length] = 0;
     return 0;
 }
 
-char whitespace[] = " \t\r\n\v";
+char whitespace_chars[] = " \t\r\n\v"; // cac ki tu bo qua
 
-int gettoken(char **ps, char *es, char **q, char **eq) {
-    char *s = *ps;
+// Tach token
+int extract_token(char **current_pos, char *end_pos, char **token_start, char **token_end) {
+    char *pos = *current_pos;
 
-    while (s < es && strchr(whitespace, *s)) s++;
-    if (q) *q = s;
+    // Bo khoang trang
+    while (pos < end_pos && strchr(whitespace_chars, *pos)) pos++;
+    if (token_start) *token_start = pos; // Luu vi tri bat dau token
 
-    int ret = *s;
-    if (*s) {  
-        ret = 'a';
-        while (s < es && !strchr(whitespace, *s)) s++;
+    int token_type = *pos; // Ki tu dau tien cua token
+    if (*pos) {  
+        token_type = 'a'; // Neu co token hop le, dat thanh ki tu a (sau nay co the phan loai)
+        while (pos < end_pos && !strchr(whitespace_chars, *pos)) pos++; // Vi tri ket thuc
     }
 
-    if (eq) *eq = s;
-    if (s < es) *s++ = 0;
+    if (token_end) *token_end = pos; // Vi tri ket thuc cua toekn
+    if (pos < end_pos) *pos++ = 0; // Tach token
 
-    while (s < es && strchr(whitespace, *s)) s++;
-    *ps = s;
-    return ret;
+    // Bo khoang trang
+    while (pos < end_pos && strchr(whitespace_chars, *pos)) pos++;
+    *current_pos = pos; // cap nhat pos tiep theo
+    return token_type;
 }
 
 int main(int argc, char *argv[]) {
-    char *xargs[MAXARG]; 
+    char *command_args[MAXARGS]; // mang chua cac tham so
+    // Luu cac doi so tu dong lenh
     for (int i = 1; i < argc; i++) {
-        xargs[i - 1] = argv[i];  
+        command_args[i - 1] = argv[i];
     }
 
-    static char buf[MAXLINE];
-    char *q, *eq;
+    static char input_buffer[MAXLINE];
+    char *token_start, *token_end; // con tro xac dinh vi tri token
 
-    while (getcmd(buf, sizeof(buf)) >= 0) {
-        int j = argc - 1;  
-        char *s = buf;
-        char *es = s + strlen(s);
+    // Doc lenh va xu li
+    while (read_command(input_buffer, sizeof(input_buffer)) >= 0) {
+        int arg_index = argc - 1; 
+        char *current_pos = input_buffer;
+        char *end_pos = current_pos + strlen(current_pos);
 
-        while (gettoken(&s, es, &q, &eq) != 0) {
-            *eq = 0;  
-            xargs[j] = q;
-            xargs[j + 1] = 0;  
+        // Lap qua tung token
+        while (extract_token(&current_pos, end_pos, &token_start, &token_end) != 0) {
+            *token_end = 0;
+            command_args[arg_index] = token_start; // Luu token
+            command_args[arg_index + 1] = 0;
 
+            // Tien trinh con de thuc hien lenh
             int pid = fork();
             if (pid == 0) {  
-                exec(xargs[0], xargs);
-                fprintf(2, "xargs: exec failed for %s\n", xargs[0]);
+                exec(command_args[0], command_args);
+                fprintf(2, "xargs: exec failed for %s\n", command_args[0]); // Bao loi
                 exit(1);
             } else {  
-                wait(0);
+                wait(0); // Tien trinh cha cho tien trinh con
             }
         }
     }
