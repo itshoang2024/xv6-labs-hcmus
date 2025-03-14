@@ -6,6 +6,9 @@
 #include "proc.h"
 #include "defs.h"
 
+#define LOAD_SAMPLES 100  
+#define LOAD_FREQ 100 // ticks
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -25,6 +28,70 @@ extern char trampoline[]; // trampoline.S
 // memory model when using p->parent.
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
+
+struct {
+  struct spinlock lock;
+  int samples[LOAD_SAMPLES];  // Mảng lưu số các sample (RUNNABLE + RUNNING)
+  int current;                // Index sample hiện tại
+  int count;                  // Số sample đã thu thập
+  int total;                  // Tổng giá trị các sample
+  int last_update;            // Thời điểm cập nhật sample gần nhất
+} loadavg;
+
+void loadavginit(void) {
+  initlock(&loadavg.lock, "loadavg");
+  loadavg.current = 0;
+  loadavg.count = 0;
+  loadavg.total = 0;
+  loadavg.last_update = 0;
+  
+  for(int i = 0; i < LOAD_SAMPLES; i++) 
+    loadavg.samples[i] = 0;
+}
+
+void update_loadavg(int ticks) {
+  struct proc *p;
+  int runnable_count = 0;
+  
+  if(ticks - loadavg.last_update < LOAD_FREQ)
+    return;
+    
+  acquire(&loadavg.lock);
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state == RUNNABLE || p->state == RUNNING)
+      runnable_count++;
+    release(&p->lock);
+  }
+  
+  // Trừ sample cũ, thêm sample mới
+  if(loadavg.count >= LOAD_SAMPLES) 
+    loadavg.total -= loadavg.samples[loadavg.current];
+  loadavg.samples[loadavg.current] = runnable_count;
+  loadavg.total += runnable_count;
+  loadavg.current = (loadavg.current + 1) % LOAD_SAMPLES;
+  
+  if(loadavg.count < LOAD_SAMPLES)
+    loadavg.count++;
+    
+  loadavg.last_update = ticks;
+  
+  release(&loadavg.lock);
+}
+
+uint64 getloadavg(void) {
+  uint64 avg;
+  
+  acquire(&loadavg.lock);
+  if(loadavg.count == 0) {
+    release(&loadavg.lock);
+    return 0;
+  }
+  avg = (loadavg.total * 100) / loadavg.count;
+  release(&loadavg.lock);
+  
+  return avg;
+}
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid

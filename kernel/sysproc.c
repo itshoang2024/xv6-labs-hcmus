@@ -95,6 +95,7 @@ sys_uptime(void)
 
 uint64 getfreemem(void);
 uint64 getnproc(void);
+uint64 getloadavg(void);
 
 uint64 sys_sysinfo(void) {
   struct proc *p = myproc();
@@ -104,6 +105,7 @@ uint64 sys_sysinfo(void) {
   argaddr(0, &addr);
   info.freemem = getfreemem();
   info.nproc = getnproc();
+  info.loadavg = getloadavg();
 
   if(copyout(p->pagetable, addr, (char *)&info, sizeof(info)) < 0)
     return -1;

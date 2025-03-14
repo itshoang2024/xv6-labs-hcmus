@@ -148,6 +148,15 @@ main(int argc, char *argv[])
   testcall();
   testmem();
   testproc();
+
+  struct sysinfo info;
+  if (sysinfo(&info) < 0) {
+    printf("FAIL: sysinfo failed");
+    exit(1);
+  }
+  printf("Load average: %d\n", info.loadavg / 100);
+  printf("Load average: %d.%d\n", info.loadavg / 100, info.loadavg % 100);
+
   printf("sysinfotest: OK\n");
   exit(0);
 }

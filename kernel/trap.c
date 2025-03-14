@@ -160,11 +160,13 @@ kerneltrap()
   w_sstatus(sstatus);
 }
 
+extern void update_loadavg(int);
 void
 clockintr()
 {
   acquire(&tickslock);
   ticks++;
+  update_loadavg(ticks);
   wakeup(&ticks);
   release(&tickslock);
 }

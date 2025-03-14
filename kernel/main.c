@@ -11,6 +11,8 @@ void
 main()
 {
   if(cpuid() == 0){
+    extern void loadavginit(void);
+
     consoleinit();
     printfinit();
     printf("\n");
@@ -20,6 +22,7 @@ main()
     kvminit();       // create kernel page table
     kvminithart();   // turn on paging
     procinit();      // process table
+    loadavginit();  
     trapinit();      // trap vectors
     trapinithart();  // install kernel trap vector
     plicinit();      // set up interrupt controller
