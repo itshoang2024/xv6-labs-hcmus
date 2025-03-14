@@ -93,6 +93,15 @@ sys_uptime(void)
   return xticks;
 }
 
+uint64
+sys_trace(void) {
+  int trace_mask;
+  argint(0, &trace_mask);
+  struct proc *p = myproc();
+  p->mask = trace_mask;
+  return 0;
+}
+
 uint64 getfreemem(void);
 uint64 getnproc(void);
 uint64 getloadavg(void);
