@@ -1,9 +1,9 @@
 diff --git a/.gitignore b/.gitignore
 new file mode 100644
-index 0000000..b35fa33
+index 0000000..4ee803d
 --- /dev/null
 +++ b/.gitignore
-@@ -0,0 +1,26 @@
+@@ -0,0 +1,27 @@
 +*~
 +_*
 +*.o
@@ -30,6 +30,7 @@ index 0000000..b35fa33
 +/lab-*.json
 +.DS_Store
 +/.vscode
++/linh tinh
 \ No newline at end of file
 diff --git a/.vscode/c_cpp_properties.json b/.vscode/c_cpp_properties.json
 new file mode 100644
@@ -153,6 +154,583 @@ index 0000000..c9e66f1
 +  "C_Cpp_Runner.msvcSecureNoWarnings": false
 +}
 \ No newline at end of file
+diff --git a/23127048_23127133_23127373.patch b/23127048_23127133_23127373.patch
+new file mode 100644
+index 0000000..390b0c6
+--- /dev/null
++++ b/23127048_23127133_23127373.patch
+@@ -0,0 +1,571 @@
++diff --git a/.gitignore b/.gitignore
++new file mode 100644
++index 0000000..b35fa33
++--- /dev/null
+++++ b/.gitignore
++@@ -0,0 +1,26 @@
+++*~
+++_*
+++*.o
+++*.d
+++*.asm
+++*.sym
+++*.img
+++vectors.S
+++bootblock
+++entryother
+++initcode
+++initcode.out
+++kernelmemfs
+++mkfs
+++kernel/kernel
+++user/usys.S
+++.gdbinit
+++*.zip
+++xv6.out*
+++.vagrant/
+++submissions/
+++ph
+++barrier
+++/lab-*.json
+++.DS_Store
+++/.vscode
++\ No newline at end of file
++diff --git a/.vscode/c_cpp_properties.json b/.vscode/c_cpp_properties.json
++new file mode 100644
++index 0000000..f912847
++--- /dev/null
+++++ b/.vscode/c_cpp_properties.json
++@@ -0,0 +1,18 @@
+++{
+++  "configurations": [
+++    {
+++      "name": "windows-gcc-x86",
+++      "includePath": [
+++        "${workspaceFolder}/**"
+++      ],
+++      "compilerPath": "C:/MinGW/bin/gcc.exe",
+++      "cStandard": "${default}",
+++      "cppStandard": "${default}",
+++      "intelliSenseMode": "windows-gcc-x86",
+++      "compilerArgs": [
+++        ""
+++      ]
+++    }
+++  ],
+++  "version": 4
+++}
++\ No newline at end of file
++diff --git a/.vscode/launch.json b/.vscode/launch.json
++new file mode 100644
++index 0000000..50283fb
++--- /dev/null
+++++ b/.vscode/launch.json
++@@ -0,0 +1,24 @@
+++{
+++  "version": "0.2.0",
+++  "configurations": [
+++    {
+++      "name": "C/C++ Runner: Debug Session",
+++      "type": "cppdbg",
+++      "request": "launch",
+++      "args": [],
+++      "stopAtEntry": false,
+++      "externalConsole": true,
+++      "cwd": "//wsl.localhost/Ubuntu/home/hoang/xv6-labs-2023/kernel",
+++      "program": "//wsl.localhost/Ubuntu/home/hoang/xv6-labs-2023/kernel/build/Debug/outDebug",
+++      "MIMode": "gdb",
+++      "miDebuggerPath": "gdb",
+++      "setupCommands": [
+++        {
+++          "description": "Enable pretty-printing for gdb",
+++          "text": "-enable-pretty-printing",
+++          "ignoreFailures": true
+++        }
+++      ]
+++    }
+++  ]
+++}
++\ No newline at end of file
++diff --git a/.vscode/settings.json b/.vscode/settings.json
++new file mode 100644
++index 0000000..c9e66f1
++--- /dev/null
+++++ b/.vscode/settings.json
++@@ -0,0 +1,59 @@
+++{
+++  "C_Cpp_Runner.cCompilerPath": "gcc",
+++  "C_Cpp_Runner.cppCompilerPath": "g++",
+++  "C_Cpp_Runner.debuggerPath": "gdb",
+++  "C_Cpp_Runner.cStandard": "",
+++  "C_Cpp_Runner.cppStandard": "",
+++  "C_Cpp_Runner.msvcBatchPath": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Auxiliary/Build/vcvarsall.bat",
+++  "C_Cpp_Runner.useMsvc": false,
+++  "C_Cpp_Runner.warnings": [
+++    "-Wall",
+++    "-Wextra",
+++    "-Wpedantic",
+++    "-Wshadow",
+++    "-Wformat=2",
+++    "-Wcast-align",
+++    "-Wconversion",
+++    "-Wsign-conversion",
+++    "-Wnull-dereference"
+++  ],
+++  "C_Cpp_Runner.msvcWarnings": [
+++    "/W4",
+++    "/permissive-",
+++    "/w14242",
+++    "/w14287",
+++    "/w14296",
+++    "/w14311",
+++    "/w14826",
+++    "/w44062",
+++    "/w44242",
+++    "/w14905",
+++    "/w14906",
+++    "/w14263",
+++    "/w44265",
+++    "/w14928"
+++  ],
+++  "C_Cpp_Runner.enableWarnings": true,
+++  "C_Cpp_Runner.warningsAsError": false,
+++  "C_Cpp_Runner.compilerArgs": [],
+++  "C_Cpp_Runner.linkerArgs": [],
+++  "C_Cpp_Runner.includePaths": [],
+++  "C_Cpp_Runner.includeSearch": [
+++    "*",
+++    "**/*"
+++  ],
+++  "C_Cpp_Runner.excludeSearch": [
+++    "**/build",
+++    "**/build/**",
+++    "**/.*",
+++    "**/.*/**",
+++    "**/.vscode",
+++    "**/.vscode/**"
+++  ],
+++  "C_Cpp_Runner.useAddressSanitizer": false,
+++  "C_Cpp_Runner.useUndefinedSanitizer": false,
+++  "C_Cpp_Runner.useLeakSanitizer": false,
+++  "C_Cpp_Runner.showCompilationTime": false,
+++  "C_Cpp_Runner.useLinkTimeOptimization": false,
+++  "C_Cpp_Runner.msvcSecureNoWarnings": false
+++}
++\ No newline at end of file
++diff --git a/Makefile b/Makefile
++index 365c91b..83cacbd 100644
++--- a/Makefile
+++++ b/Makefile
++@@ -188,9 +188,8 @@ UPROGS=\
++ 	$U/_grind\
++ 	$U/_wc\
++ 	$U/_zombie\
++-
++-
++-
+++	$U/_sysinfotest\
+++	$U/_trace\
++ 
++ ifeq ($(LAB),$(filter $(LAB), lock))
++ UPROGS += \
++diff --git a/answers-syscall.txt b/answers-syscall.txt
++new file mode 100644
++index 0000000..fb0c882
++--- /dev/null
+++++ b/answers-syscall.txt
++@@ -0,0 +1,30 @@
+++Looking at the backtrace output, which function called syscall?
+++The function usertrap() called syscall().
+++
+++What is the value of p->trapframe->a7 and what does that value represent?
+++The value of p->trapframe->a7 is 0x7 (7 in decimal)
+++What it represents: The exec() system call.
+++
+++What was the previous mode that the CPU was in?
+++Value of sstatus: 0x200000022
+++Binary value: 0b100000000000000000000000000100010
+++Value of bit position 8: 0
+++--> Previous CPU mode: User mode
+++
+++Write down the assembly instruction the kernel is panicing at. Which register corresponds to the variable num?
+++Faulting assembly instruction: lw a3, 0(zero) # 0 <_entry-0x80000000>
+++Assembly explanation:
+++lw (load word): Loads a 32-bit value from memory into register a3.
+++zero register (x0): Always holds the value 0.
+++0(zero): This means load from memory address 0x0 (NULL pointer).
+++Destination register: a3 --> This is where the loaded value is stored.
+++Register corresponding to num: a3
+++
+++Why does the kernel crash? Is address 0 mapped in the kernel address space? Is that confirmed by the value in scause above?
+++The kernel attempts to dereference a NULL pointer (0x0).
+++The NULL pointer (0x0) is not mapped in the kernel address space.
+++This causes a load page fault (scause = 0xD), leading to a kernel panic. So scause helps confirm the kernel crash.
+++
+++What is the name of the binary that was running when the kernel paniced? What is its process id (pid)?
+++Name of the binary running when the kernel panicked: initcode\000\000\000\000\000\000\000
+++Process ID (pid) of the crashing process: 1
++\ No newline at end of file
++diff --git a/kernel/kalloc.c b/kernel/kalloc.c
++index 0699e7e..84adc2c 100644
++--- a/kernel/kalloc.c
+++++ b/kernel/kalloc.c
++@@ -80,3 +80,18 @@ kalloc(void)
++     memset((char*)r, 5, PGSIZE); // fill with junk
++   return (void*)r;
++ }
+++
+++uint64 getfreemem(void) {
+++  struct run *r;
+++  uint64 free_pages = 0;
+++  
+++  acquire(&kmem.lock);
+++  r = kmem.freelist;
+++  while(r) {
+++    free_pages++;
+++    r = r->next;
+++  }
+++  release(&kmem.lock);
+++
+++  return free_pages * PGSIZE;
+++}
++\ No newline at end of file
++diff --git a/kernel/main.c b/kernel/main.c
++index f0d3171..379c3b8 100644
++--- a/kernel/main.c
+++++ b/kernel/main.c
++@@ -11,6 +11,8 @@ void
++ main()
++ {
++   if(cpuid() == 0){
+++    extern void loadavginit(void);
+++
++     consoleinit();
++     printfinit();
++     printf("\n");
++@@ -20,6 +22,7 @@ main()
++     kvminit();       // create kernel page table
++     kvminithart();   // turn on paging
++     procinit();      // process table
+++    loadavginit();  
++     trapinit();      // trap vectors
++     trapinithart();  // install kernel trap vector
++     plicinit();      // set up interrupt controller
++diff --git a/kernel/proc.c b/kernel/proc.c
++index 58a8a0b..b9b2005 100644
++--- a/kernel/proc.c
+++++ b/kernel/proc.c
++@@ -6,6 +6,9 @@
++ #include "proc.h"
++ #include "defs.h"
++ 
+++#define LOAD_SAMPLES 100  
+++#define LOAD_FREQ 100 // ticks
+++
++ struct cpu cpus[NCPU];
++ 
++ struct proc proc[NPROC];
++@@ -26,6 +29,70 @@ extern char trampoline[]; // trampoline.S
++ // must be acquired before any p->lock.
++ struct spinlock wait_lock;
++ 
+++struct {
+++  struct spinlock lock;
+++  int samples[LOAD_SAMPLES];  // Mảng lưu số các sample (RUNNABLE + RUNNING)
+++  int current;                // Index sample hiện tại
+++  int count;                  // Số sample đã thu thập
+++  int total;                  // Tổng giá trị các sample
+++  int last_update;            // Thời điểm cập nhật sample gần nhất
+++} loadavg;
+++
+++void loadavginit(void) {
+++  initlock(&loadavg.lock, "loadavg");
+++  loadavg.current = 0;
+++  loadavg.count = 0;
+++  loadavg.total = 0;
+++  loadavg.last_update = 0;
+++  
+++  for(int i = 0; i < LOAD_SAMPLES; i++) 
+++    loadavg.samples[i] = 0;
+++}
+++
+++void update_loadavg(int ticks) {
+++  struct proc *p;
+++  int runnable_count = 0;
+++  
+++  if(ticks - loadavg.last_update < LOAD_FREQ)
+++    return;
+++    
+++  acquire(&loadavg.lock);
+++  for(p = proc; p < &proc[NPROC]; p++) {
+++    acquire(&p->lock);
+++    if(p->state == RUNNABLE || p->state == RUNNING)
+++      runnable_count++;
+++    release(&p->lock);
+++  }
+++  
+++  // Trừ sample cũ, thêm sample mới
+++  if(loadavg.count >= LOAD_SAMPLES) 
+++    loadavg.total -= loadavg.samples[loadavg.current];
+++  loadavg.samples[loadavg.current] = runnable_count;
+++  loadavg.total += runnable_count;
+++  loadavg.current = (loadavg.current + 1) % LOAD_SAMPLES;
+++  
+++  if(loadavg.count < LOAD_SAMPLES)
+++    loadavg.count++;
+++    
+++  loadavg.last_update = ticks;
+++  
+++  release(&loadavg.lock);
+++}
+++
+++uint64 getloadavg(void) {
+++  uint64 avg;
+++  
+++  acquire(&loadavg.lock);
+++  if(loadavg.count == 0) {
+++    release(&loadavg.lock);
+++    return 0;
+++  }
+++  avg = (loadavg.total * 100) / loadavg.count;
+++  release(&loadavg.lock);
+++  
+++  return avg;
+++}
+++
++ // Allocate a page for each process's kernel stack.
++ // Map it high in memory, followed by an invalid
++ // guard page.
++@@ -282,7 +349,7 @@ fork(void)
++   int i, pid;
++   struct proc *np;
++   struct proc *p = myproc();
++-
+++  
++   // Allocate process.
++   if((np = allocproc()) == 0){
++     return -1;
++@@ -321,7 +388,7 @@ fork(void)
++   acquire(&np->lock);
++   np->state = RUNNABLE;
++   release(&np->lock);
++-
+++  np->mask = p->mask;
++   return pid;
++ }
++ 
++@@ -686,3 +753,16 @@ procdump(void)
++     printf("\n");
++   }
++ }
+++
+++uint64 getnproc(void) {
+++  struct proc *p;
+++  uint64 active_proc = 0;
+++
+++  for(p = proc; p < &proc[NPROC]; p++) {
+++    acquire(&p->lock);
+++    active_proc += (p->state != UNUSED);
+++    release(&p->lock);
+++  }
+++
+++  return active_proc;
+++}
++\ No newline at end of file
++diff --git a/kernel/proc.h b/kernel/proc.h
++index d021857..1863824 100644
++--- a/kernel/proc.h
+++++ b/kernel/proc.h
++@@ -104,4 +104,5 @@ struct proc {
++   struct file *ofile[NOFILE];  // Open files
++   struct inode *cwd;           // Current directory
++   char name[16];               // Process name (debugging)
+++  int mask;                    // Trace mask
++ };
++diff --git a/kernel/syscall.c b/kernel/syscall.c
++index ed65409..8fd992e 100644
++--- a/kernel/syscall.c
+++++ b/kernel/syscall.c
++@@ -101,6 +101,8 @@ extern uint64 sys_unlink(void);
++ extern uint64 sys_link(void);
++ extern uint64 sys_mkdir(void);
++ extern uint64 sys_close(void);
+++extern uint64 sys_trace(void);
+++extern uint64 sys_sysinfo(void);
++ 
++ // An array mapping syscall numbers from syscall.h
++ // to the function that handles the system call.
++@@ -126,6 +128,18 @@ static uint64 (*syscalls[])(void) = {
++ [SYS_link]    sys_link,
++ [SYS_mkdir]   sys_mkdir,
++ [SYS_close]   sys_close,
+++[SYS_sysinfo] sys_sysinfo,
+++[SYS_trace]   sys_trace,
+++};
+++
+++char* syscallnames[] = {
+++  "",
+++  "fork", "exit", "wait", "pipe",
+++  "read", "kill", "exec", "fstat",
+++  "chdir", "dup", "getpid", "sbrk",
+++  "sleep", "uptime", "open", "write",
+++  "mknod", "unlink", "link", "mkdir",
+++  "close", "trace",
++ };
++ 
++ void
++@@ -136,9 +150,10 @@ syscall(void)
++ 
++   num = p->trapframe->a7;
++   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
++-    // Use num to lookup the system call function for num, call it,
++-    // and store its return value in p->trapframe->a0
++     p->trapframe->a0 = syscalls[num]();
+++    if((1 << num) & p->mask) {
+++      printf("%d: syscall %s -> %d\n", p->pid, syscallnames[num], p->trapframe->a0);
+++    }
++   } else {
++     printf("%d %s: unknown sys call %d\n",
++             p->pid, p->name, num);
++diff --git a/kernel/syscall.h b/kernel/syscall.h
++index bc5f356..b106a10 100644
++--- a/kernel/syscall.h
+++++ b/kernel/syscall.h
++@@ -20,3 +20,5 @@
++ #define SYS_link   19
++ #define SYS_mkdir  20
++ #define SYS_close  21
+++#define SYS_trace 22
+++#define SYS_sysinfo 23
++\ No newline at end of file
++diff --git a/kernel/sysinfo.h b/kernel/sysinfo.h
++index fb878e6..444e63d 100644
++--- a/kernel/sysinfo.h
+++++ b/kernel/sysinfo.h
++@@ -1,4 +1,5 @@
++ struct sysinfo {
++   uint64 freemem;   // amount of free memory (bytes)
++   uint64 nproc;     // number of process
+++  uint64 loadavg;
++ };
++diff --git a/kernel/sysproc.c b/kernel/sysproc.c
++index 3b4d5bd..0bdf5e2 100644
++--- a/kernel/sysproc.c
+++++ b/kernel/sysproc.c
++@@ -5,6 +5,7 @@
++ #include "memlayout.h"
++ #include "spinlock.h"
++ #include "proc.h"
+++#include "sysinfo.h"
++ 
++ uint64
++ sys_exit(void)
++@@ -91,3 +92,32 @@ sys_uptime(void)
++   release(&tickslock);
++   return xticks;
++ }
+++
+++uint64
+++sys_trace(void) {
+++  int trace_mask;
+++  argint(0, &trace_mask);
+++  struct proc *p = myproc();
+++  p->mask = trace_mask;
+++  return 0;
+++}
+++
+++uint64 getfreemem(void);
+++uint64 getnproc(void);
+++uint64 getloadavg(void);
+++
+++uint64 sys_sysinfo(void) {
+++  struct proc *p = myproc();
+++  uint64 addr;
+++  struct sysinfo info;
+++
+++  argaddr(0, &addr);
+++  info.freemem = getfreemem();
+++  info.nproc = getnproc();
+++  info.loadavg = getloadavg();
+++
+++  if(copyout(p->pagetable, addr, (char *)&info, sizeof(info)) < 0)
+++    return -1;
+++
+++  return 0;
+++}
++\ No newline at end of file
++diff --git a/kernel/trap.c b/kernel/trap.c
++index 512c850..5cde047 100644
++--- a/kernel/trap.c
+++++ b/kernel/trap.c
++@@ -160,11 +160,13 @@ kerneltrap()
++   w_sstatus(sstatus);
++ }
++ 
+++extern void update_loadavg(int);
++ void
++ clockintr()
++ {
++   acquire(&tickslock);
++   ticks++;
+++  update_loadavg(ticks);
++   wakeup(&ticks);
++   release(&tickslock);
++ }
++diff --git a/time.txt b/time.txt
++new file mode 100644
++index 0000000..dc7b54a
++--- /dev/null
+++++ b/time.txt
++@@ -0,0 +1 @@
+++33
++\ No newline at end of file
++diff --git a/user/sysinfotest.c b/user/sysinfotest.c
++index 8a648a6..8f86029 100644
++--- a/user/sysinfotest.c
+++++ b/user/sysinfotest.c
++@@ -148,6 +148,14 @@ main(int argc, char *argv[])
++   testcall();
++   testmem();
++   testproc();
+++
+++  struct sysinfo info;
+++  if (sysinfo(&info) < 0) {
+++    printf("FAIL: sysinfo failed");
+++    exit(1);
+++  }
+++  printf("Load average: %d.%d\n", info.loadavg / 100, info.loadavg % 100);
+++
++   printf("sysinfotest: OK\n");
++   exit(0);
++ }
++diff --git a/user/user.h b/user/user.h
++index 4d398d5..14f69e5 100644
++--- a/user/user.h
+++++ b/user/user.h
++@@ -1,4 +1,5 @@
++ struct stat;
+++struct sysinfo;
++ 
++ // system calls
++ int fork(void);
++@@ -22,6 +23,8 @@ int getpid(void);
++ char* sbrk(int);
++ int sleep(int);
++ int uptime(void);
+++int trace(int);
+++int sysinfo(struct sysinfo*);
++ 
++ // ulib.c
++ int stat(const char*, struct stat*);
++diff --git a/user/usys.pl b/user/usys.pl
++index 01e426e..353a1f8 100755
++--- a/user/usys.pl
+++++ b/user/usys.pl
++@@ -36,3 +36,5 @@ entry("getpid");
++ entry("sbrk");
++ entry("sleep");
++ entry("uptime");
+++entry("trace");
+++entry("sysinfo");
++\ No newline at end of file
 diff --git a/Makefile b/Makefile
 index 365c91b..83cacbd 100644
 --- a/Makefile
@@ -383,7 +961,7 @@ index d021857..1863824 100644
 +  int mask;                    // Trace mask
  };
 diff --git a/kernel/syscall.c b/kernel/syscall.c
-index ed65409..8fd992e 100644
+index ed65409..aba81ba 100644
 --- a/kernel/syscall.c
 +++ b/kernel/syscall.c
 @@ -101,6 +101,8 @@ extern uint64 sys_unlink(void);
@@ -395,14 +973,17 @@ index ed65409..8fd992e 100644
  
  // An array mapping syscall numbers from syscall.h
  // to the function that handles the system call.
-@@ -126,6 +128,18 @@ static uint64 (*syscalls[])(void) = {
+@@ -126,22 +128,124 @@ static uint64 (*syscalls[])(void) = {
  [SYS_link]    sys_link,
  [SYS_mkdir]   sys_mkdir,
  [SYS_close]   sys_close,
 +[SYS_sysinfo] sys_sysinfo,
 +[SYS_trace]   sys_trace,
-+};
-+
+ };
+ 
+-void
+-syscall(void)
+-{
 +char* syscallnames[] = {
 +  "",
 +  "fork", "exit", "wait", "pipe",
@@ -411,22 +992,121 @@ index ed65409..8fd992e 100644
 +  "sleep", "uptime", "open", "write",
 +  "mknod", "unlink", "link", "mkdir",
 +  "close", "trace",
- };
- 
- void
-@@ -136,9 +150,10 @@ syscall(void)
++};
++
++int syscall_argcount[] = {
++  0,  // Không có syscall 0
++  0,  // fork()
++  1,  // exit(status)
++  1,  // wait(&status)
++  1,  // pipe(fd)
++  3,  // read(fd, buf, count)
++  2,  // kill(pid, sig)
++  2,  // exec(path, argv)
++  2,  // fstat(fd, stat)
++  1,  // chdir(path)
++  1,  // dup(fd)
++  0,  // getpid()
++  1,  // sbrk(size)
++  1,  // sleep(ticks)
++  0,  // uptime()
++  2,  // open(path, mode)
++  3,  // write(fd, buf, count)
++  3,  // mknod(path, mode, dev)
++  1,  // unlink(path)
++  2,  // link(oldpath, newpath)
++  1,  // mkdir(path)
++  1,  // close(fd)
++  1,  // trace(mask)
++};
++
++
++
++void syscall(void) {
+   int num;
+   struct proc *p = myproc();
  
    num = p->trapframe->a7;
-   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+-  if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
 -    // Use num to lookup the system call function for num, call it,
 -    // and store its return value in p->trapframe->a0
-     p->trapframe->a0 = syscalls[num]();
-+    if((1 << num) & p->mask) {
-+      printf("%d: syscall %s -> %d\n", p->pid, syscallnames[num], p->trapframe->a0);
+-    p->trapframe->a0 = syscalls[num]();
++
++  if (num > 0 && num < NELEM(syscalls) && syscalls[num]) {
++    uint64 args[6];
++    args[0] = p->trapframe->a0;
++    args[1] = p->trapframe->a1;
++    args[2] = p->trapframe->a2;
++    args[3] = p->trapframe->a3;
++    args[4] = p->trapframe->a4;
++    args[5] = p->trapframe->a5;
++
++    char path[MAXPATH] = {0};
++    char *argv_bufs[5] = {0}; 
++    uint64 arg_ptr;
++    
++    if ((1 << num) & p->mask) { 
++      if (num == SYS_exec) {
++        if (copyinstr(p->pagetable, path, args[0], sizeof(path)) < 0)
++          path[0] = '\0'; 
++
++        for (int i = 0; i < 5; i++) {
++          if (fetchaddr(args[1] + i * sizeof(uint64), &arg_ptr) < 0 || arg_ptr == 0)
++            break;
++          argv_bufs[i] = (char*)kalloc();
++          if (argv_bufs[i]) {
++            if (copyinstr(p->pagetable, argv_bufs[i], arg_ptr, PGSIZE) < 0)
++              argv_bufs[i][0] = '\0';
++          }
++        }
++      } else if (num == SYS_open || num == SYS_unlink || num == SYS_chdir || 
++                 num == SYS_link || num == SYS_mkdir) {
++        if (copyinstr(p->pagetable, path, args[0], sizeof(path)) < 0)
++          path[0] = '\0';
++      }
++    }
++
++    int ret = syscalls[num]();
++    p->trapframe->a0 = ret;
++
++    if ((1 << num) & p->mask) {
++      printf("%d: syscall %s(", p->pid, syscallnames[num]);
++
++      if (num == SYS_exec) {
++        printf("\"%s\", [", path);
++        for (int i = 0; i < 5 && argv_bufs[i]; i++) {
++          if (i > 0) printf(", ");
++          printf("\"%s\"", argv_bufs[i]);
++        }
++        printf("]");
++      } else if (num == SYS_open) {
++        printf("\"%s\", %d", path, args[1]);
++      } else if (num == SYS_read || num == SYS_write) {
++        printf("%d, 0x%x, %d", (int)args[0], args[1], (int)args[2]);
++      } else {
++        int argc = syscall_argcount[num];
++        for (int i = 0; i < argc; i++) {
++          if (i > 0) printf(", ");
++          printf("%d", (int)args[i]);
++        }
++      }
++
++      printf(") -> %d\n", ret);
++    }
++
++    if (num == SYS_exec) {
++      for (int i = 0; i < 5; i++) {
++        if (argv_bufs[i])
++          kfree(argv_bufs[i]);
++      }
 +    }
    } else {
-     printf("%d %s: unknown sys call %d\n",
-             p->pid, p->name, num);
+-    printf("%d %s: unknown sys call %d\n",
+-            p->pid, p->name, num);
++    printf("%d %s: unknown sys call %d\n", p->pid, p->name, num);
+     p->trapframe->a0 = -1;
+   }
+ }
 diff --git a/kernel/syscall.h b/kernel/syscall.h
 index bc5f356..b106a10 100644
 --- a/kernel/syscall.h
