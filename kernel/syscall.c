@@ -142,21 +142,96 @@ char* syscallnames[] = {
   "close", "trace",
 };
 
-void
-syscall(void)
-{
+int syscall_argcount[] = {
+  0,  // Không có syscall 0
+  0,  // fork()
+  1,  // exit(status)
+  1,  // wait(&status)
+  1,  // pipe(fd)
+  3,  // read(fd, buf, count)
+  2,  // kill(pid, sig)
+  2,  // exec(path, argv)
+  2,  // fstat(fd, stat)
+  1,  // chdir(path)
+  1,  // dup(fd)
+  0,  // getpid()
+  1,  // sbrk(size)
+  1,  // sleep(ticks)
+  0,  // uptime()
+  2,  // open(path, mode)
+  3,  // write(fd, buf, count)
+  3,  // mknod(path, mode, dev)
+  1,  // unlink(path)
+  2,  // link(oldpath, newpath)
+  1,  // mkdir(path)
+  1,  // close(fd)
+  1,  // trace(mask)
+};
+
+
+
+void syscall(void) {
   int num;
   struct proc *p = myproc();
 
   num = p->trapframe->a7;
-  if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
-    p->trapframe->a0 = syscalls[num]();
-    if((1 << num) & p->mask) {
-      printf("%d: syscall %s -> %d\n", p->pid, syscallnames[num], p->trapframe->a0);
+
+  if (num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+    uint64 args[6];
+    args[0] = p->trapframe->a0;
+    args[1] = p->trapframe->a1;
+    args[2] = p->trapframe->a2;
+    args[3] = p->trapframe->a3;
+    args[4] = p->trapframe->a4;
+    args[5] = p->trapframe->a5;
+
+    p->trapframe->a0 = syscalls[num](); 
+
+    if ((1 << num) & p->mask) { 
+      printf("%d: syscall %s(", p->pid, syscallnames[num]);
+
+      int argc = syscall_argcount[num];
+      for (int i = 0; i < argc; i++) {
+        if (i > 0) printf(", ");
+
+        if (num == SYS_open || num == SYS_exec || num == SYS_unlink || num == SYS_chdir || num == SYS_link || num == SYS_mkdir) {
+          char buf[MAXPATH];
+          if (copyinstr(p->pagetable, buf, args[i], sizeof(buf)) >= 0)
+            printf("\"%s\"", buf);
+          else
+            printf("%p", args[i]); 
+        } else if (num == SYS_read || num == SYS_write) {
+          printf("%d, %p, %d", (int)args[0], (void *)args[1], (int)args[2]);
+          break; 
+        } else if (num == SYS_exec) {
+          char buf[MAXPATH];
+          if (copyinstr(p->pagetable, buf, args[0], sizeof(buf)) >= 0)
+            printf("\"%s\"", buf);
+          else
+            printf("%p", args[0]); 
+
+          printf(", [");
+          uint64 arg_ptr;
+          for (int j = 0; j < 5; j++) {
+            if (fetchaddr(args[1] + j * sizeof(uint64), &arg_ptr) < 0 || arg_ptr == 0)
+              break;
+            if (j > 0) printf(", ");
+            if (copyinstr(p->pagetable, buf, arg_ptr, sizeof(buf)) >= 0)
+              printf("\"%s\"", buf);
+            else
+              printf("%p", arg_ptr);
+          }
+          printf("]");
+          break;
+        } else {
+          printf("%d", (int)args[i]);
+        }
+      }
+
+      printf(") -> %d\n", p->trapframe->a0);
     }
   } else {
-    printf("%d %s: unknown sys call %d\n",
-            p->pid, p->name, num);
+    printf("%d %s: unknown sys call %d\n", p->pid, p->name, num);
     p->trapframe->a0 = -1;
   }
 }
