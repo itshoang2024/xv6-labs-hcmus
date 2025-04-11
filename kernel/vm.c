@@ -455,19 +455,20 @@ void vmprintRecursive(pagetable_t pagetable, int level) {
     pte_t pte = pagetable[i];
     if(pte & PTE_V) {
       uint64 child = PTE2PA(pte);
-      for(int i = 0; i < level; i++) {
+      for(int i = 0; i <= level; i++) {
         printf("..");
         if(i != level) printf(" ");
       }
 
       printf("%d: pte %p pa %p\n", i, pte, child);
       if((pte & (PTE_R | PTE_W | PTE_X)) == 0)
-        vmprintRecursive((pagetable_t)child, level + 1);
-    }
+          vmprintRecursive((pagetable_t)child, level + 1);
+    } 
   }
 }
 
-void vmprint(pagetable_t pagetable) {
+void
+vmprint(pagetable_t pagetable) {
   printf("page table %p\n", pagetable);
   vmprintRecursive(pagetable, 0);
 }
