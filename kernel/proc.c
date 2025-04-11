@@ -125,21 +125,22 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
-  // Allocate a read-only page
-  if((p->usyscallpage = (struct usyscall *)kalloc()) == 0){
-    freeproc(p);
-    release(&p->lock);
-    return 0;
-  }
-
-  p->usyscallpage->pid = p->pid;
-
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
     release(&p->lock);
     return 0;
   }
+
+  // Cấp phát trang cho USYSCALL
+  if((p->usyscall = (struct usyscall *)kalloc()) == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+
+  // Khởi tạo giá trị cho struct usyscall
+  p->usyscall->pid = p->pid;
 
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
@@ -164,12 +165,14 @@ found:
 static void
 freeproc(struct proc *p)
 {
-  if(p->usyscallpage)
-    kfree((void*)p->usyscallpage);
-  p->usyscallpage = 0;
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
+
+  if(p->usyscall)
+    kfree((void*)p->usyscall);
+  p->usyscall = 0;
+
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
@@ -195,20 +198,20 @@ proc_pagetable(struct proc *p)
   if(pagetable == 0)
     return 0;
 
-  // map the usyscall code at the hightest user virtual address.
-  // user may read the file only
-  if(mappages(pagetable, USYSCALL, PGSIZE,
-              (uint64)(p->usyscallpage), PTE_V | PTE_R | PTE_U) < 0){
-    uvmfree(pagetable, 0);
-    return 0;
-  }
-
   // map the trampoline code (for system call return)
   // at the highest user virtual address.
   // only the supervisor uses it, on the way
   // to/from user space, so not PTE_U.
   if(mappages(pagetable, TRAMPOLINE, PGSIZE,
               (uint64)trampoline, PTE_R | PTE_X) < 0){
+    uvmfree(pagetable, 0);
+    return 0;
+  }
+
+  if(mappages(pagetable, USYSCALL, PGSIZE, 
+              (uint64)(p->usyscall), PTE_R | PTE_U) < 0){
+    uvmunmap(pagetable, TRAPFRAME, 1, 0);
+    uvmunmap(pagetable, TRAMPOLINE, 1, 0);
     uvmfree(pagetable, 0);
     return 0;
   }
@@ -316,6 +319,9 @@ fork(void)
     return -1;
   }
   np->sz = p->sz;
+
+  // Cập nhật PID trong trang USYSCALL của process con
+  np->usyscall->pid = np->pid;
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
